@@ -1,0 +1,10 @@
+{
+	"autodeskProduct":	"Fusion360",
+	"type":	"script",
+	"author":	"KobayashiRui",
+	"description":	{
+		"":	"Export SDF file"
+	},
+	"supportedOS":	"windows|mac",
+	"editEnabled":	true
+}

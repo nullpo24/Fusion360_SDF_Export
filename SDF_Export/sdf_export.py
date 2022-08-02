@@ -5,6 +5,7 @@ import os
 import xml.etree.ElementTree as Et
 import xml.dom.minidom as md
 
+
 #4x4の同次変換行列から平行移動vectorを取得する&cmをmに変換
 def get_vector(matrix):
     vector = [matrix[3] / 100.0, matrix[7] / 100, matrix[11] / 100]
@@ -151,6 +152,20 @@ class SDF():
                 #self.Joint_List.append(_joint_buf)
                 self.Joint_List[_joint_buf["name"]] = _joint_buf
 
+            #固定関節
+            if self.joint_type_list[_joint.jointMotion.jointType] == "fixed":
+                _joint_buf["name"] = "fixed" + str(i)
+                _joint_buf["child"] = _joint.occurrenceOne.fullPathName.split("+")[0].replace(' ', '_')
+                _joint_buf["parent"] = _joint.occurrenceTwo.fullPathName.split("+")[0].replace(' ', '_')
+
+                _child_link_matrix = self.Link_List[_joint_buf["child"]]["link_matrix"]
+                _child_xyz_world =  get_joint_link_vector(_joint.geometryOrOriginOne.origin.asArray(), get_vector(_child_link_matrix))  #平行移動
+                _child_link_rotation_matrix = inv_matrix(get_rotation_matrix(_child_link_matrix)) #回転行列
+                _child_xyz = matrix_multiply(_child_link_rotation_matrix, _child_xyz_world)
+                _child_rpy = rotation_matrix2roll_pitch_yaw(_child_link_rotation_matrix)
+                _joint_buf["pose"] = _child_xyz_world
+
+                self.Joint_List[_joint_buf["name"]] = _joint_buf
 
 
     def Search_Child(self, child_name):
@@ -211,18 +226,35 @@ class SDF():
             visual_mesh_uri_el.text = "model://" + self.Robot_Name + "/meshes/" + _link["name"].split(":")[0].replace(' ', '_') + ".stl"
 
 
+        i = 0
         for _joint in self.Joint_List.values():
-            joint_el = Et.SubElement(model_el, "joint", {"type":"revolute", "name":_joint["name"]})
+            _joint_item = self.joint_list.item(i)
+            i += 1
+            if self.joint_type_list[_joint_item.jointMotion.jointType] == "revolute":
+                joint_el = Et.SubElement(model_el, "joint", {"type":"revolute", "name":_joint["name"]})
 
-            joint_pose_el = Et.SubElement(joint_el, "pose")
-            joint_pose_el.text = (' '.join(list(map(str,_joint["pose"])))) 
-            joint_child_el = Et.SubElement(joint_el, "child")
-            joint_child_el.text =_joint["child"] 
-            joint_parent_el = Et.SubElement(joint_el, "parent")
-            joint_parent_el.text = _joint["parent"]
-            joint_axis_el = Et.SubElement(joint_el, "axis")
-            joint_axis_xyz_el = Et.SubElement(joint_axis_el, "xyz")
-            joint_axis_xyz_el.text = (' '.join(list(map(str,_joint["axis"]))))
+                joint_pose_el = Et.SubElement(joint_el, "pose")
+                joint_pose_el.text = (' '.join(list(map(str,_joint["pose"])))) 
+                joint_child_el = Et.SubElement(joint_el, "child")
+                joint_child_el.text =_joint["child"] 
+                joint_parent_el = Et.SubElement(joint_el, "parent")
+                joint_parent_el.text = _joint["parent"]
+                joint_axis_el = Et.SubElement(joint_el, "axis")
+                joint_axis_xyz_el = Et.SubElement(joint_axis_el, "xyz")
+                joint_axis_xyz_el.text = (' '.join(list(map(str,_joint["axis"]))))
+
+            if self.joint_type_list[_joint_item.jointMotion.jointType] == "fixed":
+                joint_el = Et.SubElement(model_el, "joint", {"type":"fixed", "name":_joint["name"]})
+
+                joint_pose_el = Et.SubElement(joint_el, "pose")
+                joint_pose_el.text = (' '.join(list(map(str,_joint["pose"])))) 
+                joint_child_el = Et.SubElement(joint_el, "child")
+                joint_child_el.text =_joint["child"] 
+                joint_parent_el = Et.SubElement(joint_el, "parent")
+                joint_parent_el.text = _joint["parent"]
+                # joint_axis_el = Et.SubElement(joint_el, "axis")
+                joint_axis_xyz_el = Et.SubElement(joint_axis_el, "xyz")
+                # joint_axis_xyz_el.text = (' '.join(list(map(str,_joint["axis"]))))
         
 
         xmlFile = open(self.robot_path + "/model.sdf", "w")
